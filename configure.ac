@@ -223,6 +223,7 @@ AC_ARG_ENABLE([intrinsics],
 rtcd_support=no
 cpu_arm=no
 cpu_x86=no
+cpu_riscv=no
 
 AS_IF([test x"${enable_asm}" = x"yes"],[
     inline_optimization="No inline ASM for your platform, please send patches"
@@ -392,6 +393,7 @@ AM_CONDITIONAL([HAVE_SSE], [false])
 AM_CONDITIONAL([HAVE_SSE2], [false])
 AM_CONDITIONAL([HAVE_SSE4_1], [false])
 AM_CONDITIONAL([HAVE_AVX2], [false])
+AM_CONDITIONAL([HAVE_RVV], [false])
 
 m4_define([DEFAULT_X86_SSE_CFLAGS], [-msse])
 m4_define([DEFAULT_X86_SSE2_CFLAGS], [-msse2])
@@ -406,6 +408,8 @@ m4_define([DEFAULT_ARM_DOTPROD_INTR_CFLAGS], ["-march=armv8.2-a+dotprod"])
 # As a heuristic, if host matches arm*eabi* but not arm*hf*, it's probably soft-float.
 m4_define([DEFAULT_ARM_NEON_SOFTFP_INTR_CFLAGS], [-mfpu=neon -mfloat-abi=softfp])
 
+m4_define([DEFINE_RISCV_RVV_INTR_CFLAGS], "-march=rv64gcv")
+
 AS_CASE([$host],
         [arm*hf*], [AS_VAR_SET([RESOLVED_DEFAULT_ARM_NEON_INTR_CFLAGS], "DEFAULT_ARM_NEON_INTR_CFLAGS")],
         [arm*eabi*], [AS_VAR_SET([RESOLVED_DEFAULT_ARM_NEON_INTR_CFLAGS], "DEFAULT_ARM_NEON_SOFTFP_INTR_CFLAGS")],
@@ -417,6 +421,7 @@ AC_ARG_VAR([X86_SSE4_1_CFLAGS], [C compiler flags to compile SSE4.1 intrinsics @
 AC_ARG_VAR([X86_AVX2_CFLAGS], [C compiler flags to compile AVX2 intrinsics @<:@default=]DEFAULT_X86_AVX2_CFLAGS[@:>@])
 AC_ARG_VAR([ARM_NEON_INTR_CFLAGS], [C compiler flags to compile ARM NEON intrinsics @<:@default=]DEFAULT_ARM_NEON_INTR_CFLAGS / DEFAULT_ARM_NEON_SOFTFP_INTR_CFLAGS[@:>@])
 AC_ARG_VAR([ARM_DOTPROD_INTR_CFLAGS], [C compiler flags to compile ARM DOTPROD intrinsics @<:@default=]DEFAULT_ARM_DOTPROD_INTR_CFLAGS[@:>@])
+AC_ARG_VAR([RISCV_RVV_INTR_CFLAGS], [C compiler flags to compile RISCV RVV intrinsics @<:@default=]DEFAULT_RISCV_RVV_INTR_CFLAGS[@:>@])
 
 AS_VAR_SET_IF([X86_SSE_CFLAGS], [], [AS_VAR_SET([X86_SSE_CFLAGS], "DEFAULT_X86_SSE_CFLAGS")])
 AS_VAR_SET_IF([X86_SSE2_CFLAGS], [], [AS_VAR_SET([X86_SSE2_CFLAGS], "DEFAULT_X86_SSE2_CFLAGS")])
@@ -424,6 +429,7 @@ AS_VAR_SET_IF([X86_SSE4_1_CFLAGS], [], [AS_VAR_SET([X86_SSE4_1_CFLAGS], "DEFAULT
 AS_VAR_SET_IF([X86_AVX2_CFLAGS], [], [AS_VAR_SET([X86_AVX2_CFLAGS], "DEFAULT_X86_AVX2_CFLAGS")])
 AS_VAR_SET_IF([ARM_NEON_INTR_CFLAGS], [], [AS_VAR_SET([ARM_NEON_INTR_CFLAGS], ["$RESOLVED_DEFAULT_ARM_NEON_INTR_CFLAGS"])])
 AS_VAR_SET_IF([ARM_DOTPROD_INTR_CFLAGS], [], [AS_VAR_SET([ARM_DOTPROD_INTR_CFLAGS], ["DEFAULT_ARM_DOTPROD_INTR_CFLAGS"])])
+AS_VAR_SET_IF([RISCV_RVV_INTR_CFLAGS], [], [AS_VAR_SET([RISCV_RVV_INTR_CFLAGS], ["DEFAULT_RISCV_RVV_INTR_CFLAGS"])])
 
 AC_DEFUN([OPUS_PATH_NE10],
    [
@@ -821,6 +827,26 @@ AS_IF([test x"$enable_intrinsics" = x"yes"],[
                  AC_DEFINE([CPU_INFO_BY_C], [1], [Get CPU Info by c method])],
             [AC_MSG_ERROR([no supported Get CPU Info method, please disable run-time CPU capabilities detection or intrinsics])])])])
    ],
+   [riscv*|rv*],
+   [
+      # check riscv capabilities
+
+      cpu_riscv=yes
+      OPUS_CHECK_INTRINSICS(
+         [RVV],
+         [$RISCV_RVV_INTR_CFLAGS],
+         [OPUS_RISCV_MAY_HAVE_RVV_INTR],
+         [OPUS_RISCV_PRESUME_RVV_INTR],
+         [[#include <riscv_vector.h>
+         ]],
+         [[
+            int vl = 2;
+            vfloat64m1_t x = __riscv_vfmv_v_f_f64m1(1.0, vl);
+            vfloat64m1_t y = __riscv_vfmul_vv_f64m1(x, x, vl);
+         ]]
+      )
+   ],
+
    [
       AC_MSG_WARN([No intrinsics support for your architecture])
       intrinsics_support="no"
@@ -846,6 +872,8 @@ AM_CONDITIONAL([HAVE_SSE4_1],
     [test x"$OPUS_X86_MAY_HAVE_SSE4_1" = x"1"])
 AM_CONDITIONAL([HAVE_AVX2],
     [test x"$OPUS_X86_MAY_HAVE_AVX2" = x"1"])
+AM_CONDITIONAL([CPU_RISCV],
+    [test x"$cpu_riscv" = "yes"])
 
 AM_CONDITIONAL([HAVE_RTCD],
  [test x"$enable_rtcd" = x"yes" -a x"$rtcd_support" != x"no"])

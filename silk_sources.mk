@@ -162,3 +162,9 @@ silk/float/sort_FLP.c
 
 SILK_SOURCES_FLOAT_AVX2 = \
 silk/float/x86/inner_product_FLP_avx2.c
+
+SILK_SOURCES_FLOAT_RVV	=	\
+silk/float/rvv/inner_product_FLP_rvv.c
+
+SILK_SOURCES_RVV	=	\
+silk/rvv/NSQ_del_dec_rvv.c

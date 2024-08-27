@@ -43,6 +43,7 @@ __attribute__((aligned(32)))
 double silk_inner_product_FLP_rvv(const silk_float * __restrict__ data1,
                                   const silk_float * __restrict__ data2,
                                   opus_int                        dataSize) {
+
     vfloat64m1_t                    accum1;
     vfloat64m1_t                    accum2;
     const silk_float * __restrict__ pd1 = data1;
@@ -51,34 +52,32 @@ double silk_inner_product_FLP_rvv(const silk_float * __restrict__ data1,
     size_t                          vl;
     size_t                          vlmax;
     double                          result;
-    int32_t                         i;
 
     vlmax    = __riscv_vsetvlmax_e64m1();
-    accum1   =  __riscv_vfmv_s_f_f32m1(0.0f,__riscv_vsetvlmax_e32m1());
+    accum1   =  __riscv_vfmv_s_f_f64m1(0.0f,__riscv_vsetvlmax_e64m1());
     accum2   = accum1;
     result   = 0.0;
-    for(;vn > 0ULL;pd1 += vl,pd2 += vl) {
-        register vfloat32m1_t x1f;
-        register vfloat32m1_t x2f;
+
+    for(;vn > 0ULL;pd1 += vl,pd2 += vl, vn-=vl) {
+        register vfloat32mf2_t x1f;
+        register vfloat32mf2_t x2f;
         register vfloat64m1_t x1d;
         register vfloat64m1_t x2d;
-        vl    = __riscv_vsetvl_e32m1();
+	// using half of register before widening
+        vl    = __riscv_vsetvlmax_e32m1() / 2;
         __builtin_prefetch(pd1+vl,0,1);
         __builtin_prefetch(pd2+vl,0,1);
-        x1f   = __riscv_vle32_v_f32m1(pd1,vl);
+        x1f   = __riscv_vle32_v_f32mf2(pd1,vl);
         x1d   = __riscv_vfwcvt_f_f_v_f64m1(x1f,vl);
-        x2f   = __riscv_vle32_v_f32m1(pd2,vl);
+        x2f   = __riscv_vle32_v_f32mf2(pd2,vl);
         x2d   = __riscv_vfwcvt_f_f_v_f64m1(x2f,vl);
         accum1= __riscv_vfmadd_vv_f64m1(x1d,x2d,accum1,vl);
-        x1f   = __riscv_vle32_v_f32m1(pd1+4,vl);
-        x1d   = __riscv_vfwcvt_f_f_v_f64m1(x1f,vl);
-        x2f   = __riscv_vle32_v_f32m1(pd2+4,vl);
-        x2d   = __riscv_vfwcvt_f_f_v_f64m1(x2f,vl);
-        accum2= __riscv_vfmadd_vv_f64m1(x1d,x2d,accum2,vl);
     }
+
     accum1 = __riscv_vfadd_vv_f64m1(accum1,accum1,vlmax);
     accum1 = __riscv_vfadd_vv_f64m1(accum1,__riscv_vslideup_vx_f64m1(accum1,accum1,1,vlmax),vlmax);
     accum1 = __riscv_vhadd_vv_f64m1(accum1,accum1);
     result = __riscv_vfmv_f_s_f64m1_f64(accum1);
+
     return (result);
 }

@@ -52,11 +52,6 @@ vint32m1_t __riscv_cvtepi16_epi32(const vint32m1_t a,
       return (__riscv_vsext_vf2_i32m1(__riscv_vlmul_trunc_v_i16m1_i16mf2(x),vl));
 }
 
-__m128i __riscv_cvtepi32_epi64(const vint32m1_t a) {
-  vint32m1_t x = a;
-  return vreinterpretq_v_i64_i32m1(
-      __riscv_vsext_vf2_i64m1(__riscv_vlmul_trunc_v_i32m1_i32mf2(x), 4));
-}
 
 __attribute__((always_inline))
 static inline
@@ -244,7 +239,6 @@ vint32m1_t __riscv_permute8x32_epi32(vint32m1_t a,vint32m1_t idx) {
    __riscv_vse32_v_i32m1(&idx_vec[0],idx,8);
    int32_t dst_vec[8];
    int j;
-   #pragma omp simd
    for(j = 0; j <= 7; ++j) {
        const int32_t id = idx_vec[j] & 0x7;
        dst_vec[j]       = a_vec[id];
@@ -272,7 +266,6 @@ vint64m1_t __riscv_cvtepi32_epi64(const vint32m1_t a) {
    int32_t mem[4];
    __riscv_vse32_v_i32m1(mem,a,4);
    int64_t dst[4];
-   #pragma omp simd
    for(int j = 0; j <= 3; ++j) {
        dst[j] = SignExtend(mem[j]);
    }
